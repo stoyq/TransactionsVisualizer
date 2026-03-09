@@ -1,4 +1,5 @@
 import os
+from datetime import date
 from pathlib import Path
 
 import altair as alt
@@ -71,6 +72,13 @@ app_ui = ui.page_sidebar(
             start=df["date"].min().date(),
             end=df["date"].max().date(),
         ),
+        ui.input_radio_buttons(
+            "date_preset",
+            "Date preset",
+            choices={"pre_mds": "Pre-MDS", "mds": "MDS", "custom": "Custom"},
+            selected="custom",
+            inline=True,
+        ),
         ui.input_action_button(
             "clear_filters",
             "Clear Filters",
@@ -138,12 +146,36 @@ app_ui = ui.page_sidebar(
 # ---------------------------------------------------------------------------
 
 def server(input, output, session):
+    @reactive.calc
+    def _date_filtered():
+        # Single source of truth for the date-range filter. Returns a DataFrame
+        # with a clean 0-based index so DataGrid's positional row tracking is
+        # always consistent with the data it was given.
+        start, end = input.date_range()
+        return (
+            df.loc[df["date"].dt.date.between(start, end)]
+            .reset_index(drop=True)
+        )
+
+    def _safe_data_view():
+        # data_view() applies the DataGrid's active column filters on top of
+        # whatever DataFrame was last passed to it. When the date range changes,
+        # there is a one-cycle race where the new (smaller) DataFrame has been
+        # set but the old column-filter row indices are still cached — calling
+        # data_view() then raises an IndexError. We fall back to _date_filtered()
+        # for that one cycle; the stale indices are cleared shortly after by the
+        # clear_datagrid_filters JS message.
+        try:
+            return transactions_table.data_view()
+        except IndexError:
+            return _date_filtered()
+
     @render_widget
     def spending_chart():
-        # Use data_view() so the chart reacts to any active DataGrid filters.
+        # Use _safe_data_view() so the chart reacts to any active DataGrid filters.
         # Keep raw rows (not aggregated) so each segment = one transaction.
         filtered_df = (
-            transactions_table.data_view()
+            _safe_data_view()
             .loc[lambda d: d["debit"].notna()]
             .sort_values("date")  # consistent stacking order within each bar
         )
@@ -207,16 +239,49 @@ def server(input, output, session):
 
     @render.data_frame
     def transactions_table():
+        return render.DataGrid(_date_filtered(), filters=True, height="350px")
+
+    # Preset date ranges stored as date objects for easy comparison.
+    _PRESETS = {
+        "pre_mds": (date(2025, 1, 1),  date(2025, 8, 25)),
+        "mds":     (date(2025, 8, 26), date(2025, 12, 31)),
+    }
+
+    @reactive.effect
+    @reactive.event(input.date_preset)
+    def _apply_preset():
+        preset = input.date_preset()
+        if preset in _PRESETS:
+            start, end = _PRESETS[preset]
+            ui.update_date_range("date_range", start=start, end=end)
+
+    @reactive.effect
+    @reactive.event(input.date_range)
+    async def _reset_datagrid_on_date_change():
+        # When the date range changes, the DataGrid receives a new (smaller)
+        # DataFrame. Its internal column-filter row indices were computed against
+        # the previous DataFrame and are now stale — applying them to the new
+        # DataFrame causes an out-of-bounds IndexError. Clearing the column
+        # filters resets that state so data_view() is always safe to call.
+        await session.send_custom_message("clear_datagrid_filters", {"id": "transactions_table"})
+
+    @reactive.effect
+    @reactive.event(input.date_range)
+    def _sync_preset_radio():
+        # When the user edits the date range manually, check if it still matches
+        # a preset. If it does, keep the radio on that preset; otherwise switch to
+        # "Custom" so the radio always reflects what the picker shows.
         start, end = input.date_range()
-        filtered = df.loc[
-            df["date"].dt.date.between(start, end)
-        ]
-        return render.DataGrid(filtered, filters=True, height="350px")
+        for key, (ps, pe) in _PRESETS.items():
+            if start == ps and end == pe:
+                return
+        ui.update_radio_buttons("date_preset", selected="custom")
 
     @reactive.effect
     @reactive.event(input.clear_filters)
     async def _():
-        # Reset the date range picker back to the full data extent
+        # Reset preset radio and date range picker back to defaults
+        ui.update_radio_buttons("date_preset", selected="custom")
         ui.update_date_range(
             "date_range",
             start=df["date"].min().date(),
@@ -227,8 +292,7 @@ def server(input, output, session):
 
     @render.text
     def row_count():
-        # data_view() reflects the currently filtered subset of rows
-        rows = transactions_table.data_view().shape[0]
+        rows = _safe_data_view().shape[0]
         return f"{rows:,} rows"
 
 
