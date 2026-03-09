@@ -1,9 +1,11 @@
 import os
 from pathlib import Path
 
+import altair as alt
 import pandas as pd
 from dotenv import load_dotenv
 from shiny import App, reactive, render, ui
+from shinywidgets import output_widget, render_widget
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -71,6 +73,7 @@ app_ui = ui.page_sidebar(
         ),
         width=280,
     ),
+
     # JS handler: clears all React-controlled filter inputs inside the DataGrid.
     # React ignores plain .value assignments, so we use the native HTMLInputElement
     # setter to trigger React's synthetic onChange event.
@@ -89,19 +92,38 @@ app_ui = ui.page_sidebar(
         });
     """),
 
-    # --- Main panel ---
-    # Header row: title on the left, data-source badge + row count on the right
-    ui.layout_columns(
-        ui.h4("Transactions"),
-        ui.div(
-            source_badge,
-            ui.output_text("row_count"),
-            style="display:flex; align-items:center; gap:12px; justify-content:flex-end;",
-        ),
-        col_widths=[6, 6],
+    # Reduce font size for all DataGrid cells
+    ui.tags.style("""
+        #transactions_table,
+        #transactions_table table,
+        #transactions_table td,
+        #transactions_table th { font-size: 0.72rem; }
+    """),
+
+    # --- Main panel: top half (chart) ---
+    ui.card(
+        ui.card_header("Spending by Merchant"),
+        output_widget("spending_chart"),
     ),
-    # Transactions table (column filters built in via DataGrid)
-    ui.output_data_frame("transactions_table"),
+
+    # --- Main panel: bottom half (table) ---
+    ui.card(
+        # Header row: title on the left, data-source badge + row count on the right
+        ui.card_header(
+            ui.layout_columns(
+                ui.span("Transactions"),
+                ui.div(
+                    source_badge,
+                    ui.output_text("row_count"),
+                    style="display:flex; align-items:center; gap:12px; justify-content:flex-end;",
+                ),
+                col_widths=[6, 6],
+            )
+        ),
+        # Transactions table (column filters built in via DataGrid)
+        ui.output_data_frame("transactions_table"),
+    ),
+
     title="Transactions Visualizer",
     fillable=True,
 )
@@ -111,9 +133,59 @@ app_ui = ui.page_sidebar(
 # ---------------------------------------------------------------------------
 
 def server(input, output, session):
+    @render_widget
+    def spending_chart():
+        # Use data_view() so the chart reacts to any active DataGrid filters.
+        # Keep raw rows (not aggregated) so each segment = one transaction.
+        filtered_df = (
+            transactions_table.data_view()
+            .loc[lambda d: d["debit"].notna()]
+            .sort_values("date")  # consistent stacking order within each bar
+        )
+
+        # Separate aggregation for the count label and x-position at bar end
+        totals_df = (
+            filtered_df
+            .groupby("description_normalized", as_index=False)
+            .agg(total=("debit", "sum"), count=("debit", "count"))
+        )
+
+        # Explicit sort order derived from totals — most reliable in layered charts
+        sort_order = totals_df.sort_values("total", ascending=False)["description_normalized"].tolist()
+
+        # Stacked bars — white stroke separates individual transaction segments
+        bars = (
+            alt.Chart(filtered_df)
+            .mark_bar(stroke="white", strokeWidth=0.5)
+            .encode(
+                x=alt.X("sum(debit):Q", title="Total Spent ($)"),
+                y=alt.Y("description_normalized:N", sort=sort_order, title=None),
+                order=alt.Order("date:T"),
+                tooltip=[
+                    alt.Tooltip("description_normalized:N", title="Merchant"),
+                    alt.Tooltip("debit:Q", title="Amount ($)", format=",.2f"),
+                    alt.Tooltip("date:T", title="Date", format="%Y-%m-%d"),
+                ],
+            )
+        )
+
+        # Count label (e.g. "n=5") placed just after the end of each bar
+        labels = (
+            alt.Chart(totals_df)
+            .transform_calculate(label="'n=' + datum.count")
+            .mark_text(align="left", dx=4, fontSize=10, color="gray")
+            .encode(
+                x=alt.X("total:Q"),
+                y=alt.Y("description_normalized:N", sort=sort_order),
+                text=alt.Text("label:N"),
+            )
+        )
+
+        return (bars + labels).properties(height=alt.Step(22))
+
     @render.data_frame
     def transactions_table():
-        return render.DataGrid(df, filters=True, height="600px")
+        return render.DataGrid(df, filters=True, height="350px")
 
     @reactive.effect
     @reactive.event(input.clear_filters)
