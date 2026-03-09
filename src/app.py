@@ -153,12 +153,15 @@ def server(input, output, session):
         # Explicit sort order derived from totals — most reliable in layered charts
         sort_order = totals_df.sort_values("total", ascending=False)["description_normalized"].tolist()
 
-        # Stacked bars — white stroke separates individual transaction segments
+        # Stacked bars — white stroke separates individual transaction segments.
+        # axis=orient("top") moves the x-axis labels and ticks to the top of the chart.
+        # Altair only allows one axis definition per encoding per layer, so the bottom
+        # axis is handled separately in the `bottom_axis` layer below.
         bars = (
             alt.Chart(filtered_df)
             .mark_bar(stroke="white", strokeWidth=0.5)
             .encode(
-                x=alt.X("sum(debit):Q", title="Total Spent ($)"),
+                x=alt.X("sum(debit):Q", title="Total Spent ($)", axis=alt.Axis(orient="top")),
                 y=alt.Y("description_normalized:N", sort=sort_order, title=None),
                 order=alt.Order("date:T"),
                 tooltip=[
@@ -169,19 +172,33 @@ def server(input, output, session):
             )
         )
 
-        # Count label (e.g. "n=5") placed just after the end of each bar
+        # Count label (e.g. "n=5") placed just after the end of each bar.
+        # title=None suppresses Altair's default behaviour of using the field name
+        # ("total") as an axis title, which would otherwise overlap the bottom axis.
         labels = (
             alt.Chart(totals_df)
             .transform_calculate(label="'n=' + datum.count")
             .mark_text(align="left", dx=4, fontSize=10, color="gray")
             .encode(
-                x=alt.X("total:Q"),
+                x=alt.X("total:Q", title=None),
                 y=alt.Y("description_normalized:N", sort=sort_order),
                 text=alt.Text("label:N"),
             )
         )
 
-        return (bars + labels).properties(height=alt.Step(22))
+        # Invisible layer whose sole purpose is to render a second x-axis at the
+        # bottom. This is the workaround for Altair's one-axis-per-layer limitation:
+        # each layer can only carry one axis definition for a given encoding, so a
+        # dedicated invisible layer is used to declare the bottom axis independently.
+        bottom_axis = (
+            alt.Chart(totals_df)
+            .mark_point(opacity=0)
+            .encode(
+                x=alt.X("total:Q", axis=alt.Axis(orient="bottom", title="Total Spent ($)")),
+            )
+        )
+
+        return (bars + labels + bottom_axis).properties(height=alt.Step(22))
 
     @render.data_frame
     def transactions_table():
