@@ -10,3 +10,5 @@
 - "Clear Filters" button to reset all table column filters
 - `environment.yml` and `src/requirements.txt` for local and Posit deployment setup
 - Deployed to Posit Connect
+
+![App snapshot](images/snapshots/2026-03-08.png)
