@@ -12,12 +12,13 @@ from shinywidgets import output_widget, render_widget
 # ---------------------------------------------------------------------------
 
 # Load variables from .env when running locally.
-# On Posit Connect / shinyapps.io, set GDRIVE_FILE_ID as a deployment variable.
+# On Posit Connect / shinyapps.io, set these as deployment variables instead.
 load_dotenv()
 
-# Google Drive file ID — extracted from the share URL:
-# https://drive.google.com/file/d/<FILE_ID>/view?usp=sharing
-GDRIVE_FILE_ID = os.getenv("GDRIVE_FILE_ID", "")
+# Google Sheets identifiers — both found in the sheet URL:
+# https://docs.google.com/spreadsheets/d/<GSHEET_ID>/edit#gid=<GSHEET_GID>
+GSHEET_ID  = os.getenv("GSHEET_ID", "")
+GSHEET_GID = os.getenv("GSHEET_GID", "0")  # "0" = first tab
 
 # Local path used during development (relative to this file)
 LOCAL_DATA_PATH = Path(__file__).parent.parent / "data" / "processed" / "transactions_2025.csv"
@@ -27,18 +28,17 @@ LOCAL_DATA_PATH = Path(__file__).parent.parent / "data" / "processed" / "transac
 # ---------------------------------------------------------------------------
 
 def load_data() -> tuple[pd.DataFrame, str]:
-    """Load transactions CSV from local disk if available, otherwise from Google Drive.
+    """Load transactions CSV from local disk if available, otherwise from Google Sheets.
 
-    Returns the DataFrame and a source tag ("local" or "google_drive") so the
+    Returns the DataFrame and a source tag ("local" or "google_sheets") so the
     UI can display where the data came from.
     """
     if LOCAL_DATA_PATH.exists():
         return pd.read_csv(LOCAL_DATA_PATH, parse_dates=["date"]), "local"
 
-    # gdown is only needed when deployed (local file absent), so import lazily
-    import gdown
-    url = f"https://drive.google.com/uc?id={GDRIVE_FILE_ID}"
-    return pd.read_csv(gdown.download(url, quiet=True), parse_dates=["date"]), "google_drive"
+    # Google Sheets CSV export URL — sheet must be shared as "Anyone with the link"
+    url = f"https://docs.google.com/spreadsheets/d/{GSHEET_ID}/export?format=csv&gid={GSHEET_GID}"
+    return pd.read_csv(url, parse_dates=["date"]), "google_sheets"
 
 
 df, data_source = load_data()
@@ -49,7 +49,7 @@ df, data_source = load_data()
 
 # Small badge shown in the header indicating where the data was loaded from
 source_badge = ui.span(
-    "Local file" if data_source == "local" else "Google Drive",
+    "Local file" if data_source == "local" else "Google Sheets",
     style=(
         "font-size:0.75rem; padding:2px 8px; border-radius:4px; "
         + ("background:#d4edda; color:#155724;" if data_source == "local"

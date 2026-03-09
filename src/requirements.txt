@@ -1,7 +1,6 @@
 shiny
 shinywidgets
 altair
-gdown
 python-dotenv
 pandas
 numpy

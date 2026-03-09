@@ -12,5 +12,4 @@ dependencies:
     - shiny
     - shinywidgets
     - altair
-    - gdown
     - python-dotenv
