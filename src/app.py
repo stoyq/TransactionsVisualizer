@@ -65,7 +65,12 @@ app_ui = ui.page_sidebar(
     # --- Sidebar (filters live here) ---
     ui.sidebar(
         ui.h5("Filters"),
-        # TODO: add filter components here (dropdowns, checkboxes, date range, etc.)
+        ui.input_date_range(
+            "date_range",
+            "Date range",
+            start=df["date"].min().date(),
+            end=df["date"].max().date(),
+        ),
         ui.input_action_button(
             "clear_filters",
             "Clear Filters",
@@ -202,11 +207,21 @@ def server(input, output, session):
 
     @render.data_frame
     def transactions_table():
-        return render.DataGrid(df, filters=True, height="350px")
+        start, end = input.date_range()
+        filtered = df.loc[
+            df["date"].dt.date.between(start, end)
+        ]
+        return render.DataGrid(filtered, filters=True, height="350px")
 
     @reactive.effect
     @reactive.event(input.clear_filters)
     async def _():
+        # Reset the date range picker back to the full data extent
+        ui.update_date_range(
+            "date_range",
+            start=df["date"].min().date(),
+            end=df["date"].max().date(),
+        )
         # Send a message to the JS handler to clear all DataGrid filter inputs
         await session.send_custom_message("clear_datagrid_filters", {"id": "transactions_table"})
 
