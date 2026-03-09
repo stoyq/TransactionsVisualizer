@@ -239,7 +239,7 @@ def server(input, output, session):
 
     @render.data_frame
     def transactions_table():
-        return render.DataGrid(_date_filtered(), filters=True, height="350px")
+        return render.DataGrid(_date_filtered(), filters=True, height="350px", width="100%")
 
     # Preset date ranges stored as date objects for easy comparison.
     _PRESETS = {
