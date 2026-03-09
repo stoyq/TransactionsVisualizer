@@ -1,0 +1,131 @@
+import os
+from pathlib import Path
+
+import pandas as pd
+from dotenv import load_dotenv
+from shiny import App, reactive, render, ui
+
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+
+# Load variables from .env when running locally.
+# On Posit Connect / shinyapps.io, set GDRIVE_FILE_ID as a deployment variable.
+load_dotenv()
+
+# Google Drive file ID — extracted from the share URL:
+# https://drive.google.com/file/d/<FILE_ID>/view?usp=sharing
+GDRIVE_FILE_ID = os.getenv("GDRIVE_FILE_ID", "")
+
+# Local path used during development (relative to this file)
+LOCAL_DATA_PATH = Path(__file__).parent.parent / "data" / "processed" / "transactions_2025.csv"
+
+# ---------------------------------------------------------------------------
+# Data loading
+# ---------------------------------------------------------------------------
+
+def load_data() -> tuple[pd.DataFrame, str]:
+    """Load transactions CSV from local disk if available, otherwise from Google Drive.
+
+    Returns the DataFrame and a source tag ("local" or "google_drive") so the
+    UI can display where the data came from.
+    """
+    if LOCAL_DATA_PATH.exists():
+        return pd.read_csv(LOCAL_DATA_PATH, parse_dates=["date"]), "local"
+
+    # gdown is only needed when deployed (local file absent), so import lazily
+    import gdown
+    url = f"https://drive.google.com/uc?id={GDRIVE_FILE_ID}"
+    return pd.read_csv(gdown.download(url, quiet=True), parse_dates=["date"]), "google_drive"
+
+
+df, data_source = load_data()
+
+# ---------------------------------------------------------------------------
+# UI helpers
+# ---------------------------------------------------------------------------
+
+# Small badge shown in the header indicating where the data was loaded from
+source_badge = ui.span(
+    "Local file" if data_source == "local" else "Google Drive",
+    style=(
+        "font-size:0.75rem; padding:2px 8px; border-radius:4px; "
+        + ("background:#d4edda; color:#155724;" if data_source == "local"
+           else "background:#cce5ff; color:#004085;")
+    ),
+)
+
+# ---------------------------------------------------------------------------
+# Layout
+# ---------------------------------------------------------------------------
+
+app_ui = ui.page_sidebar(
+    # --- Sidebar (filters live here) ---
+    ui.sidebar(
+        ui.h5("Filters"),
+        # TODO: add filter components here (dropdowns, checkboxes, date range, etc.)
+        ui.input_action_button(
+            "clear_filters",
+            "Clear Filters",
+            style="margin-top:auto; width:100%;",
+        ),
+        width=280,
+    ),
+    # JS handler: clears all React-controlled filter inputs inside the DataGrid.
+    # React ignores plain .value assignments, so we use the native HTMLInputElement
+    # setter to trigger React's synthetic onChange event.
+    ui.tags.script("""
+        Shiny.addCustomMessageHandler("clear_datagrid_filters", function(msg) {
+            var container = document.getElementById(msg.id);
+            if (!container) return;
+            var inputs = container.querySelectorAll("input");
+            var nativeSetter = Object.getOwnPropertyDescriptor(
+                window.HTMLInputElement.prototype, "value"
+            ).set;
+            inputs.forEach(function(input) {
+                nativeSetter.call(input, "");
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+            });
+        });
+    """),
+
+    # --- Main panel ---
+    # Header row: title on the left, data-source badge + row count on the right
+    ui.layout_columns(
+        ui.h4("Transactions"),
+        ui.div(
+            source_badge,
+            ui.output_text("row_count"),
+            style="display:flex; align-items:center; gap:12px; justify-content:flex-end;",
+        ),
+        col_widths=[6, 6],
+    ),
+    # Transactions table (column filters built in via DataGrid)
+    ui.output_data_frame("transactions_table"),
+    title="Transactions Visualizer",
+    fillable=True,
+)
+
+# ---------------------------------------------------------------------------
+# Server
+# ---------------------------------------------------------------------------
+
+def server(input, output, session):
+    @render.data_frame
+    def transactions_table():
+        return render.DataGrid(df, filters=True, height="600px")
+
+    @reactive.effect
+    @reactive.event(input.clear_filters)
+    async def _():
+        # Send a message to the JS handler to clear all DataGrid filter inputs
+        await session.send_custom_message("clear_datagrid_filters", {"id": "transactions_table"})
+
+    @render.text
+    def row_count():
+        # data_view() reflects the currently filtered subset of rows
+        rows = transactions_table.data_view().shape[0]
+        return f"{rows:,} rows"
+
+
+app = App(app_ui, server)

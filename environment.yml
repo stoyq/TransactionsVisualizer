@@ -1,0 +1,16 @@
+name: 'transactionsViz'
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pandas
+  - numpy
+  - matplotlib
+  - plotly
+  - pip
+  - pip:
+    - shiny
+    - shinywidgets
+    - altair
+    - gdown
+    - python-dotenv
