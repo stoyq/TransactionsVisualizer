@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - 2026-03-08
+## [0.1.0] - 2026-03-08
 
 ### Added
 - Initial Shiny for Python app with sidebar layout and transactions table
