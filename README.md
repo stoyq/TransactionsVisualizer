@@ -1,5 +1,7 @@
 # Transactions Visualizer
 
+[![CI](https://github.com/stoyq/TransactionsVisualizer/actions/workflows/ci.yml/badge.svg)](https://github.com/stoyq/TransactionsVisualizer/actions/workflows/ci.yml)
+
 A Shiny for Python app to explore and visualize personal transaction data.
 
 **Live dashboard:** https://019cd142-798e-34da-392d-0d9d66b6352c.share.connect.posit.cloud

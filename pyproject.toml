@@ -1,0 +1,18 @@
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes (undefined names, unused imports, etc.)
+    "I",   # isort (import ordering)
+    "UP",  # pyupgrade (modernise Python syntax)
+]
+
+[tool.ruff.format]
+quote-style = "double"

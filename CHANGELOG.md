@@ -1,6 +1,25 @@
 # Changelog
 
-## [Unreleased] - 2026-03-09
+## [Unreleased] - 2026-03-22
+
+As the app grows and new features are added, it's important to keep the codebase maintainable and reliable. This release establishes the engineering foundation for that: modular code where each piece can be tested in isolation, automated checks that catch regressions before they reach production, and reproducible builds so the app behaves the same everywhere it runs.
+
+### Added
+
+- `src/utils.py` module extracting all pure logic from `app.py` (`load_data`, `filter_by_date`, `aggregate_spending`, `get_sort_order`, `match_preset`, `DATE_PRESETS`) — new features will be built and tested as standalone modules before being integrated into the main app
+- `tests/test_utils.py` with 31 pytest unit tests covering all functions in `utils.py`
+- `pyproject.toml` with pytest config (`pythonpath`, `testpaths`) and ruff config (lint + format rules)
+- `requirements.lock` pinning exact dependency versions for reproducible CI builds
+- `.github/workflows/ci.yml` — GitHub Actions CI pipeline that runs ruff lint, ruff format check, and pytest on every push and pull request to `main`
+- CI status badge in `README.md`
+- `pytest` and `ruff` added to `src/requirements.txt`
+
+### Updated
+
+- `app.py` now imports from `utils.py`; Shiny UI and reactive logic remain in `app.py`
+- CI installs from `requirements.lock` instead of `src/requirements.txt` for reproducibility
+
+## [0.1.1] - 2026-03-09
 
 ### Added
 

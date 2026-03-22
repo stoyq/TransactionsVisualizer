@@ -1,12 +1,19 @@
 import os
-from datetime import date
 from pathlib import Path
 
 import altair as alt
-import pandas as pd
 from dotenv import load_dotenv
 from shiny import App, reactive, render, ui
 from shinywidgets import output_widget, render_widget
+
+from utils import (
+    DATE_PRESETS,
+    aggregate_spending,
+    filter_by_date,
+    get_sort_order,
+    load_data,
+    match_preset,
+)
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -18,7 +25,7 @@ load_dotenv()
 
 # Google Sheets identifiers — both found in the sheet URL:
 # https://docs.google.com/spreadsheets/d/<GSHEET_ID>/edit#gid=<GSHEET_GID>
-GSHEET_ID  = os.getenv("GSHEET_ID", "")
+GSHEET_ID = os.getenv("GSHEET_ID", "")
 GSHEET_GID = os.getenv("GSHEET_GID", "0")  # "0" = first tab
 
 # Local path used during development (relative to this file)
@@ -28,21 +35,7 @@ LOCAL_DATA_PATH = Path(__file__).parent.parent / "data" / "processed" / "transac
 # Data loading
 # ---------------------------------------------------------------------------
 
-def load_data() -> tuple[pd.DataFrame, str]:
-    """Load transactions CSV from local disk if available, otherwise from Google Sheets.
-
-    Returns the DataFrame and a source tag ("local" or "google_sheets") so the
-    UI can display where the data came from.
-    """
-    if LOCAL_DATA_PATH.exists():
-        return pd.read_csv(LOCAL_DATA_PATH, parse_dates=["date"]), "local"
-
-    # Google Sheets CSV export URL — sheet must be shared as "Anyone with the link"
-    url = f"https://docs.google.com/spreadsheets/d/{GSHEET_ID}/export?format=csv&gid={GSHEET_GID}"
-    return pd.read_csv(url, parse_dates=["date"]), "google_sheets"
-
-
-df, data_source = load_data()
+df, data_source = load_data(LOCAL_DATA_PATH, GSHEET_ID, GSHEET_GID)
 
 # ---------------------------------------------------------------------------
 # UI helpers
@@ -53,8 +46,11 @@ source_badge = ui.span(
     "Local file" if data_source == "local" else "Google Sheets",
     style=(
         "font-size:0.75rem; padding:2px 8px; border-radius:4px; "
-        + ("background:#d4edda; color:#155724;" if data_source == "local"
-           else "background:#cce5ff; color:#004085;")
+        + (
+            "background:#d4edda; color:#155724;"
+            if data_source == "local"
+            else "background:#cce5ff; color:#004085;"
+        )
     ),
 )
 
@@ -86,7 +82,6 @@ app_ui = ui.page_sidebar(
         ),
         width=280,
     ),
-
     # JS handler: clears all React-controlled filter inputs inside the DataGrid.
     # React ignores plain .value assignments, so we use the native HTMLInputElement
     # setter to trigger React's synthetic onChange event.
@@ -104,7 +99,6 @@ app_ui = ui.page_sidebar(
             });
         });
     """),
-
     # Reduce font size for all DataGrid cells
     ui.tags.style("""
         #transactions_table,
@@ -112,13 +106,11 @@ app_ui = ui.page_sidebar(
         #transactions_table td,
         #transactions_table th { font-size: 0.72rem; }
     """),
-
     # --- Main panel: top half (chart) ---
     ui.card(
         ui.card_header("Spending by Merchant"),
         output_widget("spending_chart"),
     ),
-
     # --- Main panel: bottom half (table) ---
     ui.card(
         # Header row: title on the left, data-source badge + row count on the right
@@ -136,7 +128,6 @@ app_ui = ui.page_sidebar(
         # Transactions table (column filters built in via DataGrid)
         ui.output_data_frame("transactions_table"),
     ),
-
     title="Transactions Visualizer",
     fillable=True,
 )
@@ -145,6 +136,7 @@ app_ui = ui.page_sidebar(
 # Server
 # ---------------------------------------------------------------------------
 
+
 def server(input, output, session):
     @reactive.calc
     def _date_filtered():
@@ -152,10 +144,7 @@ def server(input, output, session):
         # with a clean 0-based index so DataGrid's positional row tracking is
         # always consistent with the data it was given.
         start, end = input.date_range()
-        return (
-            df.loc[df["date"].dt.date.between(start, end)]
-            .reset_index(drop=True)
-        )
+        return filter_by_date(df, start, end)
 
     def _safe_data_view():
         # data_view() applies the DataGrid's active column filters on top of
@@ -181,14 +170,10 @@ def server(input, output, session):
         )
 
         # Separate aggregation for the count label and x-position at bar end
-        totals_df = (
-            filtered_df
-            .groupby("description_normalized", as_index=False)
-            .agg(total=("debit", "sum"), count=("debit", "count"))
-        )
+        totals_df = aggregate_spending(filtered_df)
 
         # Explicit sort order derived from totals — most reliable in layered charts
-        sort_order = totals_df.sort_values("total", ascending=False)["description_normalized"].tolist()
+        sort_order = get_sort_order(totals_df)
 
         # Stacked bars — white stroke separates individual transaction segments.
         # axis=orient("top") moves the x-axis labels and ticks to the top of the chart.
@@ -241,18 +226,12 @@ def server(input, output, session):
     def transactions_table():
         return render.DataGrid(_date_filtered(), filters=True, height="350px", width="100%")
 
-    # Preset date ranges stored as date objects for easy comparison.
-    _PRESETS = {
-        "pre_mds": (date(2025, 1, 1),  date(2025, 8, 25)),
-        "mds":     (date(2025, 8, 26), date(2025, 12, 31)),
-    }
-
     @reactive.effect
     @reactive.event(input.date_preset)
     def _apply_preset():
         preset = input.date_preset()
-        if preset in _PRESETS:
-            start, end = _PRESETS[preset]
+        if preset in DATE_PRESETS:
+            start, end = DATE_PRESETS[preset]
             ui.update_date_range("date_range", start=start, end=end)
 
     @reactive.effect
@@ -272,10 +251,8 @@ def server(input, output, session):
         # a preset. If it does, keep the radio on that preset; otherwise switch to
         # "Custom" so the radio always reflects what the picker shows.
         start, end = input.date_range()
-        for key, (ps, pe) in _PRESETS.items():
-            if start == ps and end == pe:
-                return
-        ui.update_radio_buttons("date_preset", selected="custom")
+        if match_preset(start, end) is None:
+            ui.update_radio_buttons("date_preset", selected="custom")
 
     @reactive.effect
     @reactive.event(input.clear_filters)
