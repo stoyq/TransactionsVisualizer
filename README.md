@@ -1,6 +1,7 @@
 # Transactions Visualizer
 
 [![CI](https://github.com/stoyq/TransactionsVisualizer/actions/workflows/ci.yml/badge.svg)](https://github.com/stoyq/TransactionsVisualizer/actions/workflows/ci.yml)
+![Last commit](https://img.shields.io/github/last-commit/stoyq/TransactionsVisualizer)
 
 A Shiny for Python app to explore and visualize personal transaction data.
 
