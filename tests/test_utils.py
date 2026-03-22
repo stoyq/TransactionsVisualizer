@@ -8,6 +8,7 @@ from utils import (
     DATE_PRESETS,
     aggregate_spending,
     filter_by_date,
+    get_git_hash,
     get_sort_order,
     load_data,
     match_preset,
@@ -234,3 +235,21 @@ class TestDatePresets:
     def test_expected_keys_exist(self):
         assert "pre_mds" in DATE_PRESETS
         assert "mds" in DATE_PRESETS
+
+
+# ---------------------------------------------------------------------------
+# get_git_hash
+# ---------------------------------------------------------------------------
+
+
+class TestGetGitHash:
+    def test_returns_a_string(self):
+        assert isinstance(get_git_hash(), str)
+
+    def test_returns_unknown_when_git_unavailable(self):
+        with patch("utils.subprocess.check_output", side_effect=Exception("no git")):
+            assert get_git_hash() == "unknown"
+
+    def test_strips_whitespace_from_git_output(self):
+        with patch("utils.subprocess.check_output", return_value="abc1234\n"):
+            assert get_git_hash() == "abc1234"

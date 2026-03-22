@@ -1,7 +1,28 @@
+import subprocess
 from datetime import date
 from pathlib import Path
 
 import pandas as pd
+
+# ---------------------------------------------------------------------------
+# Version
+# ---------------------------------------------------------------------------
+
+
+def get_git_hash() -> str:
+    """Return the short git commit hash of the running deployment.
+
+    Falls back to "unknown" if git is not available (e.g. in some CI environments).
+    """
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+    except Exception:
+        return "unknown"
+
 
 # ---------------------------------------------------------------------------
 # Date presets

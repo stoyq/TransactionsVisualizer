@@ -10,6 +10,7 @@ from utils import (
     DATE_PRESETS,
     aggregate_spending,
     filter_by_date,
+    get_git_hash,
     get_sort_order,
     load_data,
     match_preset,
@@ -79,6 +80,10 @@ app_ui = ui.page_sidebar(
             "clear_filters",
             "Clear Filters",
             style="margin-top:auto; width:100%;",
+        ),
+        ui.div(
+            f"version {get_git_hash()}",
+            style="font-size:0.7rem; color:#aaa; text-align:center; padding-top:8px;",
         ),
         width=280,
     ),
