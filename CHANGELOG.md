@@ -1,5 +1,22 @@
 # Changelog
 
+## [Unreleased] - 2026-03-24
+
+### Added
+
+- Calendar heatmap ("Daily Spending" card) showing total spend per day in a GitHub-style grid: weeks on x, days of week on y, green colour scale; x-axis shows month labels only at week boundaries
+- Heatmap tooltip shows the daily total plus the top 3 transactions of that day (merchant + amount), with a `"Top 3 (of N transactions)"` header that reflects the actual transaction count for the day
+- `build_daily_heatmap_df()` in `utils.py` — extracts the per-day aggregation logic (daily total, top-3 ranking, label formatting) so it can be tested independently
+- 10 new unit tests for `build_daily_heatmap_df` in `tests/test_utils.py`
+
+### Updated
+
+- `app.py` now calls `build_daily_heatmap_df()` from `utils.py` instead of defining the aggregation inline
+
+### Docs
+
+- Added `ARCHITECTURE.md` documenting the `utils.py` vs `app.py` split: `utils.py` holds framework-agnostic data logic (testable in isolation), `app.py` holds Shiny/Altair presentation logic (verified by running the app)
+
 ## [Unreleased] - 2026-03-22
 
 As the app grows and new features are added, it's important to keep the codebase maintainable and reliable. This release establishes the engineering foundation for that: modular code where each piece can be tested in isolation, automated checks that catch regressions before they reach production, and reproducible builds so the app behaves the same everywhere it runs.

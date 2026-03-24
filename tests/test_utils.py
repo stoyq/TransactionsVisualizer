@@ -7,6 +7,7 @@ import pytest
 from utils import (
     DATE_PRESETS,
     aggregate_spending,
+    build_daily_heatmap_df,
     filter_by_date,
     get_git_hash,
     get_sort_order,
@@ -151,6 +152,85 @@ class TestAggregateSpending:
     def test_empty_input_returns_empty_dataframe(self):
         empty = pd.DataFrame(columns=["description_normalized", "debit"])
         result = aggregate_spending(empty)
+        assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# build_daily_heatmap_df
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def multi_tx_df():
+    """Three transactions on one day, one on another, one credit row."""
+    return pd.DataFrame(
+        {
+            "date": pd.to_datetime(
+                ["2025-03-01", "2025-03-01", "2025-03-01", "2025-03-05", "2025-03-05"]
+            ),
+            "description_normalized": ["Amazon", "Starbucks", "Uber", "Netflix", "Salary"],
+            "debit": [80.0, 12.0, 6.0, 15.0, None],
+            "credit": [None, None, None, None, 3000.0],
+        }
+    )
+
+
+class TestBuildDailyHeatmapDf:
+    def test_one_row_per_day(self, multi_tx_df):
+        result = build_daily_heatmap_df(multi_tx_df)
+        assert len(result) == 2
+
+    def test_total_is_daily_sum(self, multi_tx_df):
+        result = build_daily_heatmap_df(multi_tx_df)
+        mar1 = result.loc[result["date"] == pd.Timestamp("2025-03-01"), "total"].iloc[0]
+        assert mar1 == pytest.approx(98.0)
+
+    def test_credit_rows_excluded(self, multi_tx_df):
+        """The credit row on 2025-03-05 must not inflate the daily total."""
+        result = build_daily_heatmap_df(multi_tx_df)
+        mar5 = result.loc[result["date"] == pd.Timestamp("2025-03-05"), "total"].iloc[0]
+        assert mar5 == pytest.approx(15.0)
+
+    def test_top1_is_largest_transaction(self, multi_tx_df):
+        result = build_daily_heatmap_df(multi_tx_df)
+        top1 = result.loc[result["date"] == pd.Timestamp("2025-03-01"), "top_1"].iloc[0]
+        assert "Amazon" in top1
+        assert "$80.00" in top1
+
+    def test_top3_ordered_by_amount_descending(self, multi_tx_df):
+        result = build_daily_heatmap_df(multi_tx_df)
+        row = result.loc[result["date"] == pd.Timestamp("2025-03-01")].iloc[0]
+        assert "Amazon" in row["top_1"]
+        assert "Starbucks" in row["top_2"]
+        assert "Uber" in row["top_3"]
+
+    def test_top_label_plural(self, multi_tx_df):
+        result = build_daily_heatmap_df(multi_tx_df)
+        label = result.loc[result["date"] == pd.Timestamp("2025-03-01"), "top_label"].iloc[0]
+        assert label == "(of 3 transactions)"
+
+    def test_top_label_singular(self, multi_tx_df):
+        result = build_daily_heatmap_df(multi_tx_df)
+        label = result.loc[result["date"] == pd.Timestamp("2025-03-05"), "top_label"].iloc[0]
+        assert label == "(of 1 transaction)"
+
+    def test_missing_top2_and_top3_are_empty_string(self, multi_tx_df):
+        """Days with fewer than 3 transactions should have empty strings for the missing slots."""
+        result = build_daily_heatmap_df(multi_tx_df)
+        row = result.loc[result["date"] == pd.Timestamp("2025-03-05")].iloc[0]
+        assert row["top_2"] == ""
+        assert row["top_3"] == ""
+
+    def test_output_columns(self, multi_tx_df):
+        result = build_daily_heatmap_df(multi_tx_df)
+        expected = {"date", "total", "top_label", "top_1", "top_2", "top_3"}
+        assert expected.issubset(set(result.columns))
+
+    def test_empty_input_returns_empty_dataframe(self):
+        empty = pd.DataFrame(
+            columns=["date", "description_normalized", "debit", "credit"]
+        )
+        result = build_daily_heatmap_df(empty)
         assert len(result) == 0
 
 

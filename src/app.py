@@ -9,6 +9,7 @@ from shinywidgets import output_widget, render_widget
 from utils import (
     DATE_PRESETS,
     aggregate_spending,
+    build_daily_heatmap_df,
     filter_by_date,
     get_git_hash,
     get_sort_order,
@@ -115,6 +116,11 @@ app_ui = ui.page_sidebar(
     ui.card(
         ui.card_header("Spending by Merchant"),
         output_widget("spending_chart"),
+    ),
+    # --- Main panel: middle (calendar heatmap) ---
+    ui.card(
+        ui.card_header("Daily Spending"),
+        output_widget("calendar_heatmap"),
     ),
     # --- Main panel: bottom half (table) ---
     ui.card(
@@ -226,6 +232,68 @@ def server(input, output, session):
         )
 
         return (bars + labels + bottom_axis).properties(height=alt.Step(22))
+
+    @render_widget
+    def calendar_heatmap():
+        import pandas as pd
+
+        filtered_df = _safe_data_view().loc[lambda d: d["debit"].notna()]
+
+        if filtered_df.empty:
+            return alt.Chart(
+                pd.DataFrame({"date": pd.Series([], dtype="datetime64[ns]"), "total": []})
+            ).mark_rect()
+
+        # One row per day — daily total plus the top 3 transactions as
+        # pre-formatted strings so Altair can surface them in the tooltip.
+        daily_df = build_daily_heatmap_df(filtered_df)
+
+        return (
+            alt.Chart(daily_df)
+            .mark_rect(cornerRadius=2)
+            .encode(
+                # yearweek() bins dates into ISO weeks; the labelExpr shows a month
+                # name only at the week that crosses into a new month — same trick
+                # GitHub uses for its contribution heatmap.
+                x=alt.X(
+                    "yearweek(date):O",
+                    title=None,
+                    axis=alt.Axis(
+                        labelExpr=(
+                            "month(datum.value) != month(datum.value - 7*24*60*60*1000)"
+                            " ? timeFormat(datum.value, '%b') : ''"
+                        ),
+                        ticks=False,
+                        domain=False,
+                        labelAngle=0,
+                    ),
+                ),
+                # day() uses JavaScript convention: 0=Sun, 1=Mon, …, 6=Sat
+                y=alt.Y(
+                    "day(date):O",
+                    title=None,
+                    axis=alt.Axis(
+                        labelExpr="['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][datum.value]",
+                        ticks=False,
+                        domain=False,
+                    ),
+                ),
+                color=alt.Color(
+                    "total:Q",
+                    scale=alt.Scale(scheme="greens"),
+                    title="Spent ($)",
+                ),
+                tooltip=[
+                    alt.Tooltip("date:T", title="Date", format="%b %d, %Y"),
+                    alt.Tooltip("total:Q", title="Total ($)", format=",.2f"),
+                    alt.Tooltip("top_label:N", title="Top 3"),
+                    alt.Tooltip("top_1:N", title="#1"),
+                    alt.Tooltip("top_2:N", title="#2"),
+                    alt.Tooltip("top_3:N", title="#3"),
+                ],
+            )
+            .properties(height=alt.Step(15), width=alt.Step(15))
+        )
 
     @render.data_frame
     def transactions_table():

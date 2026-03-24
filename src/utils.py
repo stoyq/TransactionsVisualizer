@@ -92,6 +92,45 @@ def aggregate_spending(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+def build_daily_heatmap_df(df: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate debit transactions to one row per day for the calendar heatmap.
+
+    Each row contains:
+    - date         – the calendar date
+    - total        – sum of all debits that day
+    - top_label    – "(of N transactions)" for display in the tooltip header
+    - top_1/2/3    – the three largest individual transactions formatted as
+                     "Merchant  $amount", or "" when fewer than three exist
+
+    Rows where ``debit`` is NaN are excluded before aggregation.
+    """
+    debits = df.loc[df["debit"].notna()].copy()
+
+    def _day_summary(grp: pd.DataFrame) -> pd.Series:
+        top = grp.nlargest(3, "debit").reset_index(drop=True)
+        n = len(grp)
+        result: dict = {
+            "total": grp["debit"].sum(),
+            "top_label": f"(of {n} transaction{'s' if n != 1 else ''})",
+        }
+        for i in range(3):
+            if i < len(top):
+                result[f"top_{i + 1}"] = (
+                    f"{top.loc[i, 'description_normalized']}  "
+                    f"${top.loc[i, 'debit']:,.2f}"
+                )
+            else:
+                result[f"top_{i + 1}"] = ""
+        return pd.Series(result)
+
+    return (
+        debits
+        .groupby("date")
+        .apply(_day_summary, include_groups=False)
+        .reset_index()
+    )
+
+
 def get_sort_order(totals_df: pd.DataFrame) -> list[str]:
     """Return merchant names sorted by total spend descending (for chart y-axis)."""
     return totals_df.sort_values("total", ascending=False)["description_normalized"].tolist()
