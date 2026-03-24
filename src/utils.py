@@ -116,19 +116,13 @@ def build_daily_heatmap_df(df: pd.DataFrame) -> pd.DataFrame:
         for i in range(3):
             if i < len(top):
                 result[f"top_{i + 1}"] = (
-                    f"{top.loc[i, 'description_normalized']}  "
-                    f"${top.loc[i, 'debit']:,.2f}"
+                    f"{top.loc[i, 'description_normalized']}  ${top.loc[i, 'debit']:,.2f}"
                 )
             else:
                 result[f"top_{i + 1}"] = ""
         return pd.Series(result)
 
-    return (
-        debits
-        .groupby("date")
-        .apply(_day_summary, include_groups=False)
-        .reset_index()
-    )
+    return debits.groupby("date").apply(_day_summary, include_groups=False).reset_index()
 
 
 def get_sort_order(totals_df: pd.DataFrame) -> list[str]:

@@ -227,9 +227,7 @@ class TestBuildDailyHeatmapDf:
         assert expected.issubset(set(result.columns))
 
     def test_empty_input_returns_empty_dataframe(self):
-        empty = pd.DataFrame(
-            columns=["date", "description_normalized", "debit", "credit"]
-        )
+        empty = pd.DataFrame(columns=["date", "description_normalized", "debit", "credit"])
         result = build_daily_heatmap_df(empty)
         assert len(result) == 0
 
