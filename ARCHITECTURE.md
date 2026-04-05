@@ -29,11 +29,16 @@ There is no meaningful way to unit test this layer in isolation. You cannot usef
 
 Moving Altair chart construction into `utils.py` would drag a framework dependency into what should be a framework-agnostic module, and would gain nothing testable in return.
 
-### In practice — the heatmap as an example
+### In practice — examples of the split
 
-The calendar heatmap illustrates the split clearly:
+**Calendar heatmap**
 
-- **`build_daily_heatmap_df()`** lives in `utils.py` — it aggregates transactions to daily totals, ranks the top 3 per day, and formats the tooltip strings. Pure data logic, 10 unit tests.
-- **`calendar_heatmap()`** lives in `app.py` — it calls `build_daily_heatmap_df()`, then constructs the Altair `mark_rect` chart spec with axis config, colour scale, and tooltip bindings. Framework-coupled, not unit tested.
+- **`build_daily_heatmap_df()`** lives in `utils.py` — aggregates transactions to daily totals, ranks the top 3 per day, and formats tooltip strings. Pure data logic, 10 unit tests.
+- **`calendar_heatmap()`** lives in `app.py` — calls `build_daily_heatmap_df()`, then constructs the Altair `mark_rect` chart spec with axis config, colour scale, and tooltip bindings. Framework-coupled, not unit tested.
+
+**Monthly spending line plot**
+
+- **`build_monthly_spending_df()`** lives in `utils.py` — groups debit transactions by calendar month and returns one row per month with a `total` column. Pure data logic, 7 unit tests.
+- **`monthly_spending_chart()`** lives in `app.py` — calls `build_monthly_spending_df()`, then constructs the Altair `mark_line` chart spec. Framework-coupled, not unit tested.
 
 New features should follow the same pattern: extract the data transformation into `utils.py` first, test it there, then wire it into the Shiny/Altair layer in `app.py`.

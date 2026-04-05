@@ -10,6 +10,7 @@ from utils import (
     DATE_PRESETS,
     aggregate_spending,
     build_daily_heatmap_df,
+    build_monthly_spending_df,
     filter_by_date,
     get_git_hash,
     get_sort_order,
@@ -117,10 +118,17 @@ app_ui = ui.page_sidebar(
         ui.card_header("Spending by Merchant"),
         output_widget("spending_chart"),
     ),
-    # --- Main panel: middle (calendar heatmap) ---
-    ui.card(
-        ui.card_header("Daily Spending"),
-        output_widget("calendar_heatmap"),
+    # --- Main panel: middle (calendar heatmap + monthly spending) ---
+    ui.layout_columns(
+        ui.card(
+            ui.card_header("Daily Spending"),
+            output_widget("calendar_heatmap"),
+        ),
+        ui.card(
+            ui.card_header("Monthly Spending"),
+            output_widget("monthly_spending_chart"),
+        ),
+        col_widths=[6, 6],
     ),
     # --- Main panel: bottom half (table) ---
     ui.card(
@@ -294,6 +302,39 @@ def server(input, output, session):
             )
             .properties(height=alt.Step(15), width=alt.Step(15))
         )
+
+    @render_widget
+    def monthly_spending_chart():
+        import pandas as pd
+
+        filtered_df = _safe_data_view().loc[lambda d: d["debit"].notna()]
+
+        if filtered_df.empty:
+            return alt.Chart(
+                pd.DataFrame({"month": pd.Series([], dtype="datetime64[ns]"), "total": []})
+            ).mark_bar()
+
+        monthly_df = build_monthly_spending_df(filtered_df)
+
+        line = (
+            alt.Chart(monthly_df)
+            .mark_line(point=True)
+            .encode(
+                x=alt.X(
+                    "month:T",
+                    title=None,
+                    axis=alt.Axis(format="%b %Y", labelAngle=-45),
+                ),
+                y=alt.Y("total:Q", title="Total Spent ($)"),
+                tooltip=[
+                    alt.Tooltip("month:T", title="Month", format="%B %Y"),
+                    alt.Tooltip("total:Q", title="Total ($)", format=",.2f"),
+                ],
+            )
+            .properties(height=200)
+        )
+
+        return line
 
     @render.data_frame
     def transactions_table():

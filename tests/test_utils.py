@@ -8,6 +8,7 @@ from utils import (
     DATE_PRESETS,
     aggregate_spending,
     build_daily_heatmap_df,
+    build_monthly_spending_df,
     filter_by_date,
     get_git_hash,
     get_sort_order,
@@ -229,6 +230,70 @@ class TestBuildDailyHeatmapDf:
     def test_empty_input_returns_empty_dataframe(self):
         empty = pd.DataFrame(columns=["date", "description_normalized", "debit", "credit"])
         result = build_daily_heatmap_df(empty)
+        assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# build_monthly_spending_df
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def monthly_tx_df():
+    """Two debits in Jan, one in Mar, one credit row in Jan — spans multiple months."""
+    return pd.DataFrame(
+        {
+            "date": pd.to_datetime(
+                ["2025-01-05", "2025-01-20", "2025-03-10", "2025-01-15"]
+            ),
+            "description_normalized": ["Grocery", "Coffee", "Transport", "Salary"],
+            "debit": [50.0, 12.0, 30.0, None],
+            "credit": [None, None, None, 3000.0],
+        }
+    )
+
+
+class TestBuildMonthlySpendingDf:
+    """Tests for build_monthly_spending_df — one row per calendar month of debit spend."""
+
+    def test_one_row_per_month(self, monthly_tx_df):
+        """Two transactions in Jan and one in Mar should produce exactly two rows."""
+        result = build_monthly_spending_df(monthly_tx_df)
+        assert len(result) == 2
+
+    def test_total_is_monthly_sum(self, monthly_tx_df):
+        """January total should be the sum of both Jan debits (50 + 12 = 62)."""
+        result = build_monthly_spending_df(monthly_tx_df)
+        jan = result.loc[result["month"] == pd.Timestamp("2025-01-01"), "total"].iloc[0]
+        assert jan == pytest.approx(62.0)
+
+    def test_credit_rows_excluded(self, monthly_tx_df):
+        """The credit row in Jan must not inflate the monthly total."""
+        result = build_monthly_spending_df(monthly_tx_df)
+        jan = result.loc[result["month"] == pd.Timestamp("2025-01-01"), "total"].iloc[0]
+        assert jan == pytest.approx(62.0)  # 50 + 12 only, not + 3000
+
+    def test_months_span_multiple_calendar_months(self, monthly_tx_df):
+        """Jan and Mar transactions must produce separate rows, not be merged."""
+        result = build_monthly_spending_df(monthly_tx_df)
+        months = set(result["month"])
+        assert pd.Timestamp("2025-01-01") in months
+        assert pd.Timestamp("2025-03-01") in months
+
+    def test_month_column_is_first_of_month(self, monthly_tx_df):
+        """The month timestamp must always be the 1st day of the month."""
+        result = build_monthly_spending_df(monthly_tx_df)
+        assert all(ts.day == 1 for ts in result["month"])
+
+    def test_output_columns(self, monthly_tx_df):
+        """Result must contain exactly the columns the chart depends on."""
+        result = build_monthly_spending_df(monthly_tx_df)
+        assert set(result.columns) == {"month", "total"}
+
+    def test_empty_input_returns_empty_dataframe(self):
+        """Should not raise on empty input — the chart handles the empty case."""
+        empty = pd.DataFrame(columns=["date", "description_normalized", "debit", "credit"])
+        result = build_monthly_spending_df(empty)
         assert len(result) == 0
 
 

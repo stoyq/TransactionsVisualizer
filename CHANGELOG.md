@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased] - 2026-04-04
+
+### Added
+
+- Monthly spending line plot ("Monthly Spending" card) showing total debit spend per calendar month with point markers; tooltip shows month name and formatted total
+- `build_monthly_spending_df()` in `utils.py` — aggregates debit transactions to one row per calendar month (month timestamp + total)
+- Center section of the main panel is now split 50/50 into two side-by-side cards: "Daily Spending" (calendar heatmap) on the left and "Monthly Spending" (line plot) on the right
+
 ## [Unreleased] - 2026-03-24
 
 ### Added

@@ -125,6 +125,20 @@ def build_daily_heatmap_df(df: pd.DataFrame) -> pd.DataFrame:
     return debits.groupby("date").apply(_day_summary, include_groups=False).reset_index()
 
 
+def build_monthly_spending_df(df: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate debit transactions to one row per calendar month.
+
+    Returns a DataFrame with columns:
+    - month  – first day of the month (Timestamp)
+    - total  – sum of all debits that month
+    """
+    debits = df.loc[df["debit"].notna()].copy()
+    if debits.empty:
+        return pd.DataFrame(columns=["month", "total"])
+    debits["month"] = debits["date"].dt.to_period("M").dt.to_timestamp()
+    return debits.groupby("month", as_index=False).agg(total=("debit", "sum"))
+
+
 def get_sort_order(totals_df: pd.DataFrame) -> list[str]:
     """Return merchant names sorted by total spend descending (for chart y-axis)."""
     return totals_df.sort_values("total", ascending=False)["description_normalized"].tolist()
