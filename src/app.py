@@ -32,7 +32,8 @@ GSHEET_ID = os.getenv("GSHEET_ID", "")
 GSHEET_GID = os.getenv("GSHEET_GID", "0")  # "0" = first tab
 
 # Local path used during development (relative to this file)
-LOCAL_DATA_PATH = Path(__file__).parent.parent / "data" / "processed" / "transactions_2025.csv"
+#LOCAL_DATA_PATH = Path(__file__).parent.parent / "data" / "processed" / "transactions_2025.csv"
+LOCAL_DATA_PATH = Path(__file__).parent.parent / "data" / "processed" / "transactions_taiwan_2026.csv"
 
 # ---------------------------------------------------------------------------
 # Data loading
