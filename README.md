@@ -17,10 +17,21 @@ A Shiny for Python app to explore and visualize personal transaction data.
    conda activate transactionsViz
    ```
 
-2. Create a `.env` file in the project root:
+2. Copy the example environment file:
    ```
-   GDRIVE_FILE_ID=your_google_drive_file_id_here
+   cp .env.example .env
    ```
+
+   Then set `GSHEET_ID` and `GSHEET_GID` in `.env`. Both values come from
+   the Google Sheets URL:
+
+   ```text
+   https://docs.google.com/spreadsheets/d/<GSHEET_ID>/edit#gid=<GSHEET_GID>
+   ```
+
+   Use only the ID values, not the full URL. The sheet must be shared as
+   **Anyone with the link** so the app can download it as CSV. `GSHEET_GID`
+   identifies the tab and is usually `0` for the first tab.
 
 3. Run the app:
    ```bash
@@ -29,8 +40,10 @@ A Shiny for Python app to explore and visualize personal transaction data.
 
 ## Data
 
-Place `transactions_2025.csv` in `data/processed/` for local development. The app falls back to Google Drive when the local file is not found (used on deployment).
+Place `transactions_2025.csv` in `data/processed/` for local development. If the local file is not found, the app loads the configured Google Sheet instead (as it does on deployment).
 
 ## Deployment
 
-Deployed on [Posit Connect](https://posit.co/products/cloud/connect/). Set `GDRIVE_FILE_ID` as a deployment environment variable — no `.env` file needed on the server.
+Deployed on [Posit Connect](https://posit.co/products/cloud/connect/). Set
+`GSHEET_ID` and `GSHEET_GID` as deployment environment variables; no `.env`
+file is needed on the server.
