@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased] - 2026-08-06
+
+### Added
+
+- Pillow-based notebook workflow for slicing tall Taiwan digital-receipt screenshots into consistently sized transaction images
+- Local PaddleOCR workflow for reading Traditional Chinese receipt images and extracting receipt codes, merchants, purchase descriptions, amounts, and dates into structured CSV output
+- Manual cleanup and validation notebook for reviewing uncertain OCR results and exporting Taiwan trip spending as `data/processed/transactions_taiwan_2026.csv`
+- JupyterLab and IPython kernel support for documenting and reproducing the image-processing and OCR exploration
+
 ## [Unreleased] - 2026-04-04
 
 ### Added
