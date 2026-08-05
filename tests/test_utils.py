@@ -243,9 +243,7 @@ def monthly_tx_df():
     """Two debits in Jan, one in Mar, one credit row in Jan — spans multiple months."""
     return pd.DataFrame(
         {
-            "date": pd.to_datetime(
-                ["2025-01-05", "2025-01-20", "2025-03-10", "2025-01-15"]
-            ),
+            "date": pd.to_datetime(["2025-01-05", "2025-01-20", "2025-03-10", "2025-01-15"]),
             "description_normalized": ["Grocery", "Coffee", "Transport", "Salary"],
             "debit": [50.0, 12.0, 30.0, None],
             "credit": [None, None, None, 3000.0],
