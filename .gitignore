@@ -5,3 +5,6 @@ __pycache__/
 *.Rproj.user
 .Rhistory
 .vscode
+*checkpoint.ipynb
+images/crops
+images/Screenshot*

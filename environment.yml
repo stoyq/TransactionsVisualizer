@@ -2,10 +2,13 @@ name: 'transactionsViz'
 channels:
   - conda-forge
 dependencies:
+  - ipykernel
+  - jupyterlab
   - python=3.12
   - pandas
   - numpy
   - matplotlib
+  - pillow
   - plotly
   - pytest=9.0.2
   - ruff=0.15.7
