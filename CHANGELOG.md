@@ -4,6 +4,8 @@
 
 ### Added
 
+- Sidebar layout selector with the original stacked arrangement as the default and an alternate side-by-side layout: merchant spending above daily spending on the left, transactions above monthly spending on the right
+- Side-by-side layout allocates 60% of the available panel height to merchant spending and transactions, and 40% to daily and monthly spending; switching layouts preserves table filters and existing outputs
 - Local CSV dataset selector listing `data/processed/*.csv`, with table/chart updates and date/filter resets when switching datasets; deployments without local CSVs retain the Google Sheets fallback
 - Sidebar "Scale Debit" multiplier (default 1) for currency conversion, applied to the transaction table and all spending charts without changing source data or credits
 - `scale_debit()` helper with validation for finite, non-negative rates and tests covering source preservation, unchanged credits, missing debits, and invalid rates
@@ -25,6 +27,7 @@
 
 ### Fixed
 
+- Constrained dashboard layouts to the browser viewport with scrolling inside the merchant chart and transaction panels, keeping card headers visible
 - Corrected debit-scale validation to use `shiny.req()` instead of the nonexistent `shiny.reactive.req()`, resolving the runtime `AttributeError`
 - Disabled MKL-DNN in the OCR notebook to work around PaddlePaddle 3.3.1's oneDNN/PIR attribute conversion error
 - Guarded the OCR split preview when no store-name or description region is detected
