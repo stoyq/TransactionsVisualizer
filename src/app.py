@@ -473,9 +473,7 @@ def server(input, output, session):
         debits = debits[np.isfinite(debits)]
         # Compute exact, equal-width bins; Vega's maxbins is only an upper bound.
         counts, edges = np.histogram(debits, bins=int(input.histogram_bins()))
-        bins_df = pd.DataFrame(
-            {"lower": edges[:-1], "upper": edges[1:], "count": counts}
-        )
+        bins_df = pd.DataFrame({"lower": edges[:-1], "upper": edges[1:], "count": counts})
         return (
             alt.Chart(bins_df)
             .mark_bar()
