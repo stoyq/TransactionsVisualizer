@@ -41,11 +41,31 @@ LOCAL_DATA_PATH = (
 LOCAL_CSV_FILES = {path.name: path for path in sorted(LOCAL_DATA_PATH.parent.glob("*.csv"))}
 if LOCAL_CSV_FILES and not LOCAL_DATA_PATH.exists():
     LOCAL_DATA_PATH = next(iter(LOCAL_CSV_FILES.values()))
+SHEET_TABS = {
+    label: gid
+    for label, variable in (
+        ("Taiwan 2026", "GSHEET_GID_TAIWAN_2026"),
+        ("Vancouver 2025", "GSHEET_GID_VAN_2025"),
+    )
+    if (gid := os.getenv(variable, "").strip())
+}
+if not SHEET_TABS:
+    SHEET_TABS = {"Google Sheets": GSHEET_GID}
+DATASET_CHOICES = (
+    {name: name for name in LOCAL_CSV_FILES}
+    if LOCAL_CSV_FILES
+    else {name: name for name in SHEET_TABS}
+)
+DEFAULT_DATASET = LOCAL_DATA_PATH.name if LOCAL_CSV_FILES else next(iter(SHEET_TABS))
 # ---------------------------------------------------------------------------
 # Data loading
 # ---------------------------------------------------------------------------
 
-df, data_source = load_data(LOCAL_DATA_PATH, GSHEET_ID, GSHEET_GID)
+df, data_source = load_data(
+    LOCAL_DATA_PATH,
+    GSHEET_ID,
+    GSHEET_GID if LOCAL_CSV_FILES else SHEET_TABS[DEFAULT_DATASET],
+)
 
 # ---------------------------------------------------------------------------
 # UI helpers
@@ -73,12 +93,10 @@ app_ui = ui.page_sidebar(
     ui.sidebar(
         ui.input_select(
             "local_csv",
-            "CSV dataset",
-            choices={name: name for name in LOCAL_CSV_FILES},
-            selected=LOCAL_DATA_PATH.name,
-        )
-        if LOCAL_CSV_FILES
-        else None,
+            "CSV dataset" if LOCAL_CSV_FILES else "Google Sheets dataset",
+            choices=DATASET_CHOICES,
+            selected=DEFAULT_DATASET,
+        ),
         ui.input_select(
             "dashboard_layout",
             "Layout",
@@ -235,13 +253,13 @@ app_ui = ui.page_sidebar(
 def server(input, output, session):
     @reactive.calc
     def _dataset():
-        if not LOCAL_CSV_FILES:
-            return df
         selected = input.local_csv()
-        req(selected in LOCAL_CSV_FILES)
-        if selected == LOCAL_DATA_PATH.name:
+        req(selected in DATASET_CHOICES)
+        if selected == DEFAULT_DATASET:
             return df
-        return load_data(LOCAL_CSV_FILES[selected], GSHEET_ID, GSHEET_GID)[0]
+        if LOCAL_CSV_FILES:
+            return load_data(LOCAL_CSV_FILES[selected], GSHEET_ID, GSHEET_GID)[0]
+        return load_data(LOCAL_DATA_PATH, GSHEET_ID, SHEET_TABS[selected])[0]
 
     @reactive.effect
     async def _reset_for_dataset():

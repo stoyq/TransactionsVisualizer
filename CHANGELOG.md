@@ -4,6 +4,7 @@
 
 ### Added
 
+- Google Sheets dataset selector for Taiwan 2026 and Vancouver 2025 tabs in one spreadsheet, configured through `GSHEET_GID_TAIWAN_2026` and `GSHEET_GID_VAN_2025`; local CSVs still take priority and legacy `GSHEET_GID` remains supported
 - Sidebar layout selector with the original stacked arrangement as the default and an alternate side-by-side layout: merchant spending above daily spending on the left, transactions above monthly spending on the right
 - Side-by-side layout allocates 60% of the available panel height to merchant spending and transactions, and 40% to daily and monthly spending; switching layouts preserves table filters and existing outputs
 - Local CSV dataset selector listing `data/processed/*.csv`, with table/chart updates and date/filter resets when switching datasets; deployments without local CSVs retain the Google Sheets fallback
