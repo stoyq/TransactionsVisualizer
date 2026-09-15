@@ -79,6 +79,12 @@ app_ui = ui.page_sidebar(
         )
         if LOCAL_CSV_FILES
         else None,
+        ui.input_select(
+            "dashboard_layout",
+            "Layout",
+            choices={"stacked": "Stacked (original)", "columns": "Side by side (60/40)"},
+            selected="stacked",
+        ),
         ui.h5("Filters"),
         ui.input_date_range(
             "date_range",
@@ -110,6 +116,16 @@ app_ui = ui.page_sidebar(
     # React ignores plain .value assignments, so we use the native HTMLInputElement
     # setter to trigger React's synthetic onChange event.
     ui.tags.script("""
+        // Rearrange existing cards without unbinding outputs or losing table filters.
+        $(document).on("shiny:inputchanged", function(event) {
+            if (event.name !== "dashboard_layout") return;
+            document.getElementById("dashboard").classList.toggle(
+                "layout-columns", event.value === "columns"
+            );
+            window.requestAnimationFrame(function() {
+                window.dispatchEvent(new Event("resize"));
+            });
+        });
         Shiny.addCustomMessageHandler("clear_datagrid_filters", function(msg) {
             var container = document.getElementById(msg.id);
             if (!container) return;
@@ -125,47 +141,90 @@ app_ui = ui.page_sidebar(
     """),
     # Reduce font size for all DataGrid cells
     ui.tags.style("""
+        html, body { height: 100%; overflow: hidden; }
+        .bslib-page-sidebar { height: 100dvh; overflow: hidden; }
+        .bslib-page-sidebar > .bslib-sidebar-layout {
+            flex: 1 1 0; min-height: 0; overflow: hidden;
+        }
+        .bslib-sidebar-layout > .main {
+            min-height: 0; min-width: 0; overflow: hidden;
+        }
+        .dashboard {
+            flex: 1 1 0 !important;
+            height: 0;
+            overflow: hidden;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            grid-template-rows: repeat(3, minmax(0, 1fr));
+            grid-template-areas: "merchant merchant" "daily monthly" "transactions transactions";
+            gap: 1rem;
+            min-height: 0;
+        }
+        .dashboard.layout-columns {
+            grid-template-rows: minmax(0, 3fr) minmax(0, 2fr);
+            grid-template-areas: "merchant transactions" "daily monthly";
+        }
+        .merchant-panel { grid-area: merchant; }
+        .daily-panel { grid-area: daily; }
+        .monthly-panel { grid-area: monthly; }
+        .transactions-panel { grid-area: transactions; }
+        .dashboard > .card { min-width: 0; min-height: 0; margin: 0; }
+        .dashboard .card-header { flex: 0 0 auto; }
+        .dashboard .card-body {
+            flex: 1 1 0; min-height: 0; min-width: 0; overflow: auto;
+        }
+        #spending_chart { flex: 0 0 auto; }
+        .transactions-heading, .dataset-status {
+            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+        }
+        .transactions-heading { justify-content: space-between; }
+        #transactions_table { height: 100%; min-height: 0; }
+        @media (max-width: 767px) {
+            .dashboard, .dashboard.layout-columns {
+                grid-template-columns: minmax(0, 1fr);
+                grid-template-rows: repeat(4, minmax(0, 1fr));
+                grid-template-areas: "merchant" "transactions" "daily" "monthly";
+                overflow: hidden;
+            }
+        }
         #transactions_table,
         #transactions_table table,
         #transactions_table td,
         #transactions_table th { font-size: 0.72rem; }
     """),
-    # --- Main panel: top half (chart) ---
-    ui.card(
-        ui.card_header("Spending by Merchant"),
-        output_widget("spending_chart"),
-    ),
-    # --- Main panel: middle (calendar heatmap + monthly spending) ---
-    ui.layout_columns(
+    ui.div(
+        ui.card(
+            ui.card_header("Spending by Merchant"),
+            output_widget("spending_chart"),
+            class_="merchant-panel",
+        ),
         ui.card(
             ui.card_header("Daily Spending"),
             output_widget("calendar_heatmap"),
+            class_="daily-panel",
         ),
         ui.card(
             ui.card_header("Monthly Spending"),
             output_widget("monthly_spending_chart"),
+            class_="monthly-panel",
         ),
-        col_widths=[6, 6],
-    ),
-    # --- Main panel: bottom half (table) ---
-    ui.card(
-        # Header row: title on the left, data-source badge + row count on the right
-        ui.card_header(
-            ui.layout_columns(
-                ui.span("Transactions"),
+        ui.card(
+            ui.card_header(
                 ui.div(
-                    source_badge,
-                    ui.output_text("row_count"),
-                    style="display:flex; align-items:center; gap:12px; justify-content:flex-end;",
-                ),
-                col_widths=[6, 6],
-            )
+                    ui.span("Transactions"),
+                    ui.div(source_badge, ui.output_text("row_count"), class_="dataset-status"),
+                    class_="transactions-heading",
+                )
+            ),
+            ui.output_data_frame("transactions_table"),
+            class_="transactions-panel",
         ),
-        # Transactions table (column filters built in via DataGrid)
-        ui.output_data_frame("transactions_table"),
+        id="dashboard",
+        class_="dashboard html-fill-item",
     ),
     title="Transactions Visualizer",
     fillable=True,
+    fillable_mobile=True,
 )
 
 # ---------------------------------------------------------------------------
@@ -378,7 +437,7 @@ def server(input, output, session):
 
     @render.data_frame
     def transactions_table():
-        return render.DataGrid(_date_filtered(), filters=True, height="350px", width="100%")
+        return render.DataGrid(_date_filtered(), filters=True, height="100%", width="100%")
 
     @reactive.effect
     @reactive.event(input.date_preset)
