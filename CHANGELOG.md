@@ -1,5 +1,28 @@
 # Changelog
 
+## [Unreleased] - 2026-09-14
+
+### Added
+
+- Standalone Shiny OCR review app (`shiny run src/ocr_review.py --port 8001`) with a sortable, filterable transaction table alongside annotated receipt images and editable extracted fields
+- Session-local editing of merchant names, descriptions, receipt codes, amounts, dates, combined OCR text, and parse-valid flags, with edited-row/field counts and an option to restore a row's original values
+- Reviewed CSV downloads that preserve Chinese text, leading-zero receipt identifiers, empty cells, and original source files; edits must be exported before closing or refreshing the session
+- Original OCR values and confidence details, missing-image and invalid-dataset messages, responsive review layout, and an `OCR_REVIEW_DIR` override for selecting another dataset
+- `src/ocr_review_data.py` helpers for loading summaries, resolving annotated images, applying edits, exporting CSVs, and displaying numeric columns; three unit tests cover source-preserving exports, image lookup, and numeric sorting
+- `paddlepaddle` and `paddleocr` dependencies in `environment.yml`
+
+### Updated
+
+- OCR notebook now extracts separate store-name and description fields, including their confidence scores, during the main image-processing pass instead of a second folder pass
+- Cropping notebook now uses the September 10 screenshot; OCR dataset paths now target the July-to-September 2026 Taiwan transactions and a separate test folder
+- `.gitignore` now excludes the entire `images/` directory from newly tracked files
+- Applied Ruff formatting to the main app's local data-path configuration
+
+### Fixed
+
+- Disabled MKL-DNN in the OCR notebook to work around PaddlePaddle 3.3.1's oneDNN/PIR attribute conversion error
+- Guarded the OCR split preview when no store-name or description region is detected
+
 ## [Unreleased] - 2026-08-06
 
 ### Added
