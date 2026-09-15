@@ -7,5 +7,4 @@ __pycache__/
 .Rhistory
 .vscode
 *checkpoint.ipynb
-images/crops
-images/Screenshot*
+images/

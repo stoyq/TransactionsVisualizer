@@ -18,3 +18,5 @@ dependencies:
     - shinywidgets
     - altair
     - python-dotenv
+    - paddlepaddle
+    - paddleocr
