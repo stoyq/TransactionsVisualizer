@@ -14,6 +14,7 @@ from utils import (
     get_sort_order,
     load_data,
     match_preset,
+    scale_debit,
 )
 
 # ---------------------------------------------------------------------------
@@ -32,6 +33,23 @@ def sample_df():
             "credit": [None, None, None, 100.0],
         }
     )
+
+
+def test_scale_debit_preserves_source_and_credits(sample_df):
+    original = sample_df.copy(deep=True)
+    scaled = scale_debit(sample_df, 0.25)
+    assert scaled["debit"].iloc[:3].tolist() == [12.5, 7.5, 1.25]
+    assert pd.isna(scaled["debit"].iloc[3])
+    pd.testing.assert_frame_equal(scaled.drop(columns="debit"), original.drop(columns="debit"))
+    pd.testing.assert_frame_equal(sample_df, original)
+    pd.testing.assert_frame_equal(scale_debit(sample_df, 1), original)
+    assert scale_debit(sample_df, 2)["debit"].iloc[0] == 100
+
+
+@pytest.mark.parametrize("factor", [-1, float("nan"), float("inf")])
+def test_scale_debit_rejects_invalid_factors(sample_df, factor):
+    with pytest.raises(ValueError, match="finite, non-negative"):
+        scale_debit(sample_df, factor)
 
 
 # ---------------------------------------------------------------------------

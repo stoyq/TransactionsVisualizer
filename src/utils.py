@@ -1,5 +1,6 @@
 import subprocess
 from datetime import date
+from math import isfinite
 from pathlib import Path
 
 import pandas as pd
@@ -62,6 +63,13 @@ def load_data(local_path: Path, gsheet_id: str, gsheet_gid: str) -> tuple[pd.Dat
 # ---------------------------------------------------------------------------
 # Data filtering
 # ---------------------------------------------------------------------------
+
+
+def scale_debit(df: pd.DataFrame, factor: float) -> pd.DataFrame:
+    """Multiply debits without modifying source data or credit values."""
+    if not isfinite(factor) or factor < 0:
+        raise ValueError("Debit scale must be a finite, non-negative number.")
+    return df.assign(debit=df["debit"] * factor)
 
 
 def filter_by_date(df: pd.DataFrame, start: date, end: date) -> pd.DataFrame:

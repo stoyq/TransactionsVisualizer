@@ -4,6 +4,9 @@
 
 ### Added
 
+- Local CSV dataset selector listing `data/processed/*.csv`, with table/chart updates and date/filter resets when switching datasets; deployments without local CSVs retain the Google Sheets fallback
+- Sidebar "Scale Debit" multiplier (default 1) for currency conversion, applied to the transaction table and all spending charts without changing source data or credits
+- `scale_debit()` helper with validation for finite, non-negative rates and tests covering source preservation, unchanged credits, missing debits, and invalid rates
 - Standalone Shiny OCR review app (`shiny run src/ocr_review.py --port 8001`) with a sortable, filterable transaction table alongside annotated receipt images and editable extracted fields
 - Session-local editing of merchant names, descriptions, receipt codes, amounts, dates, combined OCR text, and parse-valid flags, with edited-row/field counts and an option to restore a row's original values
 - Reviewed CSV downloads that preserve Chinese text, leading-zero receipt identifiers, empty cells, and original source files; edits must be exported before closing or refreshing the session
@@ -13,6 +16,8 @@
 
 ### Updated
 
+- "Clear Filters" now restores the selected dataset's full date range; the debit conversion rate is preserved when clearing filters or switching CSVs
+- Local startup selects the first available processed CSV if the preferred Taiwan CSV is missing
 - OCR notebook now extracts separate store-name and description fields, including their confidence scores, during the main image-processing pass instead of a second folder pass
 - Cropping notebook now uses the September 10 screenshot; OCR dataset paths now target the July-to-September 2026 Taiwan transactions and a separate test folder
 - `.gitignore` now excludes the entire `images/` directory from newly tracked files
@@ -20,6 +25,7 @@
 
 ### Fixed
 
+- Corrected debit-scale validation to use `shiny.req()` instead of the nonexistent `shiny.reactive.req()`, resolving the runtime `AttributeError`
 - Disabled MKL-DNN in the OCR notebook to work around PaddlePaddle 3.3.1's oneDNN/PIR attribute conversion error
 - Guarded the OCR split preview when no store-name or description region is detected
 

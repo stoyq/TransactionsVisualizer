@@ -1,9 +1,10 @@
 import os
+from math import isfinite
 from pathlib import Path
 
 import altair as alt
 from dotenv import load_dotenv
-from shiny import App, reactive, render, ui
+from shiny import App, reactive, render, req, ui
 from shinywidgets import output_widget, render_widget
 
 from utils import (
@@ -16,6 +17,7 @@ from utils import (
     get_sort_order,
     load_data,
     match_preset,
+    scale_debit,
 )
 
 # ---------------------------------------------------------------------------
@@ -36,6 +38,9 @@ GSHEET_GID = os.getenv("GSHEET_GID", "0")  # "0" = first tab
 LOCAL_DATA_PATH = (
     Path(__file__).parent.parent / "data" / "processed" / "transactions_taiwan_2026.csv"
 )
+LOCAL_CSV_FILES = {path.name: path for path in sorted(LOCAL_DATA_PATH.parent.glob("*.csv"))}
+if LOCAL_CSV_FILES and not LOCAL_DATA_PATH.exists():
+    LOCAL_DATA_PATH = next(iter(LOCAL_CSV_FILES.values()))
 # ---------------------------------------------------------------------------
 # Data loading
 # ---------------------------------------------------------------------------
@@ -66,6 +71,14 @@ source_badge = ui.span(
 app_ui = ui.page_sidebar(
     # --- Sidebar (filters live here) ---
     ui.sidebar(
+        ui.input_select(
+            "local_csv",
+            "CSV dataset",
+            choices={name: name for name in LOCAL_CSV_FILES},
+            selected=LOCAL_DATA_PATH.name,
+        )
+        if LOCAL_CSV_FILES
+        else None,
         ui.h5("Filters"),
         ui.input_date_range(
             "date_range",
@@ -80,6 +93,8 @@ app_ui = ui.page_sidebar(
             selected="custom",
             inline=True,
         ),
+        ui.input_numeric("debit_scale", "Scale Debit", value=1, min=0, step="any"),
+        ui.help_text("Multiply debit amounts by this rate for currency conversion."),
         ui.input_action_button(
             "clear_filters",
             "Clear Filters",
@@ -160,12 +175,35 @@ app_ui = ui.page_sidebar(
 
 def server(input, output, session):
     @reactive.calc
+    def _dataset():
+        if not LOCAL_CSV_FILES:
+            return df
+        selected = input.local_csv()
+        req(selected in LOCAL_CSV_FILES)
+        if selected == LOCAL_DATA_PATH.name:
+            return df
+        return load_data(LOCAL_CSV_FILES[selected], GSHEET_ID, GSHEET_GID)[0]
+
+    @reactive.effect
+    async def _reset_for_dataset():
+        current = _dataset()
+        ui.update_radio_buttons("date_preset", selected="custom")
+        ui.update_date_range(
+            "date_range",
+            start=current["date"].min().date(),
+            end=current["date"].max().date(),
+        )
+        await session.send_custom_message("clear_datagrid_filters", {"id": "transactions_table"})
+
+    @reactive.calc
     def _date_filtered():
         # Single source of truth for the date-range filter. Returns a DataFrame
         # with a clean 0-based index so DataGrid's positional row tracking is
         # always consistent with the data it was given.
         start, end = input.date_range()
-        return filter_by_date(df, start, end)
+        factor = input.debit_scale()
+        req(factor is not None and isfinite(factor) and factor >= 0)
+        return scale_debit(filter_by_date(_dataset(), start, end), factor)
 
     def _safe_data_view():
         # data_view() applies the DataGrid's active column filters on top of
@@ -374,11 +412,12 @@ def server(input, output, session):
     @reactive.event(input.clear_filters)
     async def _():
         # Reset preset radio and date range picker back to defaults
+        current = _dataset()
         ui.update_radio_buttons("date_preset", selected="custom")
         ui.update_date_range(
             "date_range",
-            start=df["date"].min().date(),
-            end=df["date"].max().date(),
+            start=current["date"].min().date(),
+            end=current["date"].max().date(),
         )
         # Send a message to the JS handler to clear all DataGrid filter inputs
         await session.send_custom_message("clear_datagrid_filters", {"id": "transactions_table"})
