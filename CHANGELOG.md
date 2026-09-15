@@ -5,8 +5,8 @@
 ### Added
 
 - Google Sheets dataset selector for Taiwan 2026 and Vancouver 2025 tabs in one spreadsheet, configured through `GSHEET_GID_TAIWAN_2026` and `GSHEET_GID_VAN_2025`; local CSVs still take priority and legacy `GSHEET_GID` remains supported
-- Sidebar layout selector with the original stacked arrangement as the default and an alternate side-by-side layout: merchant spending above daily spending on the left, transactions above monthly spending on the right
-- Side-by-side layout allocates 60% of the available panel height to merchant spending and transactions, and 40% to daily and monthly spending; switching layouts preserves table filters and existing outputs
+- Sidebar layout selector with the original stacked arrangement as the default and an alternate side-by-side layout; switching layouts preserves table filters and existing outputs
+- "Transactions by Debit Range" histogram with an exact, equal-width bin count controlled by a 1–50 slider (default 10), range/count tooltips, and updates reflecting active date/table filters and debit scaling
 - Local CSV dataset selector listing `data/processed/*.csv`, with table/chart updates and date/filter resets when switching datasets; deployments without local CSVs retain the Google Sheets fallback
 - Sidebar "Scale Debit" multiplier (default 1) for currency conversion, applied to the transaction table and all spending charts without changing source data or credits
 - `scale_debit()` helper with validation for finite, non-negative rates and tests covering source preservation, unchanged credits, missing debits, and invalid rates
@@ -19,6 +19,8 @@
 
 ### Updated
 
+- Original layout now places the histogram to the right of Monthly Spending in a three-chart middle row
+- Side-by-side layout places merchant spending and transactions next to each other in the top 60% of panel height, with Daily Spending, Monthly Spending, and the histogram across the bottom 40%; narrow screens stack all five panels
 - "Clear Filters" now restores the selected dataset's full date range; the debit conversion rate is preserved when clearing filters or switching CSVs
 - Local startup selects the first available processed CSV if the preferred Taiwan CSV is missing
 - OCR notebook now extracts separate store-name and description fields, including their confidence scores, during the main image-processing pass instead of a second folder pass

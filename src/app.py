@@ -3,6 +3,8 @@ from math import isfinite
 from pathlib import Path
 
 import altair as alt
+import numpy as np
+import pandas as pd
 from dotenv import load_dotenv
 from shiny import App, reactive, render, req, ui
 from shinywidgets import output_widget, render_widget
@@ -172,19 +174,25 @@ app_ui = ui.page_sidebar(
             height: 0;
             overflow: hidden;
             display: grid;
-            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            grid-template-columns: repeat(6, minmax(0, 1fr));
             grid-template-rows: repeat(3, minmax(0, 1fr));
-            grid-template-areas: "merchant merchant" "daily monthly" "transactions transactions";
+            grid-template-areas:
+                "merchant merchant merchant merchant merchant merchant"
+                "daily daily monthly monthly histogram histogram"
+                "transactions transactions transactions transactions transactions transactions";
             gap: 1rem;
             min-height: 0;
         }
         .dashboard.layout-columns {
             grid-template-rows: minmax(0, 3fr) minmax(0, 2fr);
-            grid-template-areas: "merchant transactions" "daily monthly";
+            grid-template-areas:
+                "merchant merchant merchant transactions transactions transactions"
+                "daily daily monthly monthly histogram histogram";
         }
         .merchant-panel { grid-area: merchant; }
         .daily-panel { grid-area: daily; }
         .monthly-panel { grid-area: monthly; }
+        .histogram-panel { grid-area: histogram; }
         .transactions-panel { grid-area: transactions; }
         .dashboard > .card { min-width: 0; min-height: 0; margin: 0; }
         .dashboard .card-header { flex: 0 0 auto; }
@@ -200,8 +208,8 @@ app_ui = ui.page_sidebar(
         @media (max-width: 767px) {
             .dashboard, .dashboard.layout-columns {
                 grid-template-columns: minmax(0, 1fr);
-                grid-template-rows: repeat(4, minmax(0, 1fr));
-                grid-template-areas: "merchant" "transactions" "daily" "monthly";
+                grid-template-rows: repeat(5, minmax(0, 1fr));
+                grid-template-areas: "merchant" "transactions" "daily" "monthly" "histogram";
                 overflow: hidden;
             }
         }
@@ -225,6 +233,12 @@ app_ui = ui.page_sidebar(
             ui.card_header("Monthly Spending"),
             output_widget("monthly_spending_chart"),
             class_="monthly-panel",
+        ),
+        ui.card(
+            ui.card_header("Transactions by Debit Range"),
+            ui.input_slider("histogram_bins", "Number of bins", min=1, max=50, value=10),
+            output_widget("debit_histogram"),
+            class_="histogram-panel",
         ),
         ui.card(
             ui.card_header(
@@ -452,6 +466,31 @@ def server(input, output, session):
         )
 
         return line
+
+    @render_widget
+    def debit_histogram():
+        debits = _safe_data_view()["debit"].dropna()
+        debits = debits[np.isfinite(debits)]
+        # Compute exact, equal-width bins; Vega's maxbins is only an upper bound.
+        counts, edges = np.histogram(debits, bins=int(input.histogram_bins()))
+        bins_df = pd.DataFrame(
+            {"lower": edges[:-1], "upper": edges[1:], "count": counts}
+        )
+        return (
+            alt.Chart(bins_df)
+            .mark_bar()
+            .encode(
+                x=alt.X("lower:Q", bin="binned", title="Debit amount ($)"),
+                x2=alt.X2("upper:Q"),
+                y=alt.Y("count:Q", title="Transactions", axis=alt.Axis(tickMinStep=1)),
+                tooltip=[
+                    alt.Tooltip("lower:Q", title="From ($)", format=",.2f"),
+                    alt.Tooltip("upper:Q", title="To ($)", format=",.2f"),
+                    alt.Tooltip("count:Q", title="Transactions", format=",d"),
+                ],
+            )
+            .properties(height=160, width="container")
+        )
 
     @render.data_frame
     def transactions_table():
