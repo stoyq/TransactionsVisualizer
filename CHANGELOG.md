@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased] - 2026-09-16
+
+### Future direction
+
+- Develop reusable skills to coordinate transaction processing: use scripts for predictable conversion and combining, LLM judgment for merchant normalization, and explicit validation between stages
+- Start with [process-transactions](skills/process-transactions/SKILL.md) as the parent workflow and [normalize-transactions](skills/normalize-transactions/SKILL.md) for merchant naming; reuse accepted mappings from previous normalized outputs to keep future runs consistent
+- Extend the workflow with categorization and spending reports once their rules are defined; these stages remain disabled in the initial template
+
 ## [Unreleased] - 2026-09-14
 
 ### Added
