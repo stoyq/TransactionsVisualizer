@@ -48,6 +48,7 @@ SHEET_TABS = {
     for label, variable in (
         ("Taiwan 2026", "GSHEET_GID_TAIWAN_2026"),
         ("Vancouver 2025", "GSHEET_GID_VAN_2025"),
+        ("Vancouver 2026", "GSHEET_GID_VAN_2026"),
     )
     if (gid := os.getenv(variable, "").strip())
 }

@@ -45,10 +45,10 @@ Place `transactions_2025.csv` in `data/processed/` for local development. If the
 ## Deployment
 
 For multiple datasets in one spreadsheet, set `GSHEET_ID` together with
-`GSHEET_GID_TAIWAN_2026` and `GSHEET_GID_VAN_2025` to the respective tab IDs.
-When local CSVs are absent, the dropdown offers Taiwan 2026 and Vancouver 2025.
+`GSHEET_GID_TAIWAN_2026`, `GSHEET_GID_VAN_2025`, and `GSHEET_GID_VAN_2026` to the respective tab IDs.
+When local CSVs are absent, the dropdown offers the configured Taiwan 2026, Vancouver 2025, and Vancouver 2026 tabs.
 Switching tabs resets the date range and table filters while retaining the debit scale.
-If neither named tab is configured, the app uses the original `GSHEET_GID` setting.
+If no named tab is configured, the app uses the original `GSHEET_GID` setting.
 Local CSVs in `data/processed/` take priority over Google Sheets.
 
 Deployed on [Posit Connect](https://posit.co/products/cloud/connect/). Set

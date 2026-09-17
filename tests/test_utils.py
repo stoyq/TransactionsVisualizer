@@ -356,7 +356,7 @@ class TestMatchPreset:
         assert match_preset(date(2025, 1, 1), date(2025, 8, 25)) == "pre_mds"
 
     def test_matches_mds(self):
-        assert match_preset(date(2025, 8, 26), date(2025, 12, 31)) == "mds"
+        assert match_preset(date(2025, 8, 26), date(2026, 6, 25)) == "mds"
 
     def test_returns_none_for_custom_range(self):
         assert match_preset(date(2025, 3, 1), date(2025, 6, 30)) is None
